@@ -1,0 +1,27 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          sudo apt update
+          sudo apt install -yq build-essential 
+      - uses: actions/checkout@master
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+          target: x86_64-unknown-linux-musl
+      - run: cargo install cross
+      - run: cross build --target x86_64-unknown-linux-musl --release -Z unstable-options
+      - uses: actions/upload-artifact@v2
+        with:
+          name: srcom-book
+          path: target/x86_64-unknown-linux-musl/release/srcom-book
