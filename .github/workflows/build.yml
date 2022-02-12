@@ -30,7 +30,7 @@ jobs:
           npm run build
       - name: Package
         run: |
-          tar czf srcom-book.tar.gz -C target/x86_64-unknown-linux-musl srcom-book
+          tar czf srcom-book.tar.gz -C target/x86_64-unknown-linux-musl/release srcom-book
           tar czf srcom-book.tar.gz -C www public
       - uses: actions/upload-artifact@v2
         with:

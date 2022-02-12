@@ -150,7 +150,11 @@ pub async fn get_pending_runs() -> Result<Vec<PendingRun>> {
     const URI: &str =
         "https://www.speedrun.com/api/v1/runs?game=k6qg0xdg&embed=players&status=new&max=200";
 
-    let body = reqwest::get(URI)
+    let body = reqwest::Client::new()
+        .get(URI)
+        .header("Cache-Control", "no-cache")
+        .header("Pragma", "no-cache")
+        .send()
         .await?
         // .json::<pending_runs::RunsResource>()
         .text()
@@ -171,7 +175,14 @@ async fn test_get_pending_runs() {
 pub async fn get_mods() -> Result<Vec<String>> {
     const URI: &str = "https://www.speedrun.com/api/v1/games/k6qg0xdg?embed=moderators";
 
-    let body = reqwest::get(URI).await?.text().await?;
+    let body = reqwest::Client::new()
+        .get(URI)
+        .header("Cache-Control", "no-cache")
+        .header("Pragma", "no-cache")
+        .send()
+        .await?
+        .text()
+        .await?;
 
     serde_path_to_error::deserialize(&mut serde_json::Deserializer::from_str(&body))
         .map(|mods: moderators::ModsResource| mods.names())

@@ -1,15 +1,17 @@
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 
-use axum::extract::{Extension, Path};
+use srcom_book::auth::Auth;
+use srcom_book::db::DbConnection;
+
+use axum::extract::{Extension, Path, TypedHeader};
+use axum::headers::{authorization::Basic, Authorization};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{AddExtensionLayer, Json, Router};
-use http::Method;
-use srcom_book::db::DbConnection;
 use tower::ServiceBuilder;
-use tower_http::cors::{CorsLayer, any};
+use tower_http::cors::CorsLayer;
 
 #[tokio::main]
 async fn main() {
@@ -20,21 +22,18 @@ async fn main() {
             .unwrap(),
     ));
 
+    let auth = Auth::new(db.clone());
+
     let app = Router::new()
+        .route("/auth", get(authorize))
         .route("/pending", get(get_pending))
-        .route("/deleted", get(get_deleted))
-        .route("/fetch", get(fetch_runs))
         .route("/mods", get(get_mods))
-        .route("/book/:run/:user", post(book_run))
-        .route("/run/:run", post(enable_run).delete(disable_run))
+        .route("/book/:run", post(book_run).delete(unbook_run))
         .layer(
             ServiceBuilder::new()
                 .layer(AddExtensionLayer::new(db))
-                .layer(
-                    CorsLayer::new()
-                        .allow_methods(vec![Method::GET, Method::POST, Method::PUT, Method::DELETE])
-                        .allow_origin(any()),
-                )
+                .layer(AddExtensionLayer::new(auth))
+                .layer(CorsLayer::permissive())
                 .into_inner(),
         );
 
@@ -47,7 +46,16 @@ async fn main() {
 
 #[axum_macros::debug_handler]
 async fn get_mods() -> impl IntoResponse {
-    (StatusCode::OK, Json(srcom_book::srcom::get_mods().await.map_err(|e| format!("{:?}", e))))
+    let mods = srcom_book::srcom::get_mods()
+        .await
+        .map_err(|e| format!("{:?}", e));
+    (
+        StatusCode::OK,
+        Json(match mods {
+            Ok(mods) => serde_json::to_value(mods).unwrap(),
+            Err(e) => serde_json::json!({ "err": format!("{:?}", e) }),
+        }),
+    )
 }
 
 #[axum_macros::debug_handler]
@@ -63,7 +71,7 @@ async fn get_pending(Extension(db): Extension<Arc<Mutex<DbConnection>>>) -> impl
     };
 
     let mut db = db.lock().unwrap();
-    let pending_db = match db.get_pending_runs() {
+    let pending_db = match db.get_bookings() {
         Ok(i) => i,
         Err(e) => {
             return (
@@ -79,29 +87,36 @@ async fn get_pending(Extension(db): Extension<Arc<Mutex<DbConnection>>>) -> impl
 }
 
 #[axum_macros::debug_handler]
-async fn get_deleted(Extension(db): Extension<Arc<Mutex<DbConnection>>>) -> impl IntoResponse {
-    let mut db = db.lock().unwrap();
-    (
-        StatusCode::OK,
-        Json(db.get_deleted_runs().map_err(|e| format!("{:?}", e))),
-    )
-}
-
-#[axum_macros::debug_handler]
-async fn fetch_runs(Extension(db): Extension<Arc<Mutex<DbConnection>>>) -> impl IntoResponse {
-    let r = match srcom_book::fetch_and_store(db.clone()).await {
-        Ok(()) => format!(""),
-        Err(e) => format!("{:?}", e),
-    };
-    (StatusCode::OK, r)
+async fn authorize(
+    TypedHeader(authorization): TypedHeader<Authorization<Basic>>,
+    Extension(auth): Extension<Auth>,
+) -> impl IntoResponse {
+    if let Err(e) = auth.check(authorization.username(), authorization.password()) {
+        return (
+            StatusCode::BAD_REQUEST,
+            format!("Invalid credentials: {}", e),
+        );
+    } else {
+        return (StatusCode::OK, format!(""));
+    }
 }
 
 #[axum_macros::debug_handler]
 async fn book_run(
-    Path((run, user)): Path<(String, String)>,
+    Path(run): Path<String>,
+    TypedHeader(authorization): TypedHeader<Authorization<Basic>>,
+    Extension(auth): Extension<Auth>,
     Extension(db): Extension<Arc<Mutex<DbConnection>>>,
 ) -> impl IntoResponse {
-    let r = match srcom_book::book_run(run, user, db.clone()).await {
+    if let Err(e) = auth.check(authorization.username(), authorization.password()) {
+        return (
+            StatusCode::BAD_REQUEST,
+            format!("Invalid credentials: {}", e),
+        );
+    }
+
+    let r = match srcom_book::book_run(run, authorization.username().to_string(), db.clone()).await
+    {
         Ok(()) => format!(""),
         Err(e) => format!("{:?}", e),
     };
@@ -109,23 +124,22 @@ async fn book_run(
 }
 
 #[axum_macros::debug_handler]
-async fn enable_run(
+async fn unbook_run(
     Path(run): Path<String>,
+    TypedHeader(authorization): TypedHeader<Authorization<Basic>>,
+    Extension(auth): Extension<Auth>,
     Extension(db): Extension<Arc<Mutex<DbConnection>>>,
 ) -> impl IntoResponse {
-    match db.lock().unwrap().undelete_run(&run) {
-        Ok(()) => (StatusCode::OK, format!("")),
-        Err(e) => (StatusCode::OK, format!("{:?}", e)),
+    if let Err(e) = auth.check(authorization.username(), authorization.password()) {
+        return (
+            StatusCode::BAD_REQUEST,
+            format!("Invalid credentials: {}", e),
+        );
     }
-}
 
-#[axum_macros::debug_handler]
-async fn disable_run(
-    Path(run): Path<String>,
-    Extension(db): Extension<Arc<Mutex<DbConnection>>>,
-) -> impl IntoResponse {
-    match db.lock().unwrap().delete_run(&run) {
-        Ok(()) => (StatusCode::OK, format!("")),
-        Err(e) => (StatusCode::OK, format!("{:?}", e)),
-    }
+    let r = match srcom_book::book_run(run, "nobody".to_string(), db.clone()).await {
+        Ok(()) => format!(""),
+        Err(e) => format!("{:?}", e),
+    };
+    (StatusCode::OK, r)
 }
