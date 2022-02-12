@@ -13,6 +13,7 @@ jobs:
           sudo apt update
           sudo apt install -yq build-essential 
       - uses: actions/checkout@master
+      - uses: actions/setup-node@v2
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -20,8 +21,16 @@ jobs:
           override: true
           target: x86_64-unknown-linux-musl
       - run: cargo install cross
-      - run: cross build --target x86_64-unknown-linux-musl --release -Z unstable-options
+      - name: Build Rust service
+        run: cross build --target x86_64-unknown-linux-musl --release -Z unstable-options
+      - name: Build frontend
+        working-directory: www
+        run: npm run build
+      - name: Package
+        run: |
+          tar czf srcom-book.tar.gz -C target/x86_64-unknown-linux-musl srcom-book
+          tar czf srcom-book.tar.gz -C www public
       - uses: actions/upload-artifact@v2
         with:
-          name: srcom-book
-          path: target/x86_64-unknown-linux-musl/release/srcom-book
+          name: srcom-book.tar.gz
+          path: srcom-book.tar.gz
