@@ -175,7 +175,7 @@ impl SrcomAPI {
         }
 
         let uri = format!(
-            "https://www.speedrun.com/api/v1/runs?game={game_id}&embed=players&status=new&max=200"
+            "https://www.speedrun.com/api/v1/runs?game={game_id}&embed=players,category&status=new&max=200"
         );
 
         let body = self

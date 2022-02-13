@@ -10,15 +10,15 @@
       let pending = await(await fetch(`${API_ROOT}/pending`)).json()
 
       const ordering = [
+        "nd28z0ed",
         "w6jve26j",
         "lde3woe6",
-        "y65lw01e",
         "m1zky010",
+        "y65lw01e",
         "k6qg0xdg",
+        "9d3kqg1l",
         "m1mn8kd2",
         "j1neogy1",
-        "9d3kqg1l",
-        "nd28z0ed",
       ]
       
       let r = ordering.map((id) => ({ game: games[id], pending: pending[id] }))
