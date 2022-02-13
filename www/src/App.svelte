@@ -122,25 +122,39 @@
       {#each pending_games as { pending, game }}
         <h1>{game}</h1>
         <div class="grid">
+          <div class="th">Runner</div>
           <div class="th">Run</div>
           <div class="th">Comment</div>
           <div class="th">Booked by</div>
           <div class="th">Book</div>
           {#each pending as run}
             <div>
-              <span class="runner">
-                <a href="{run.player_url}" target="_blank">{run.player_name} {getFlagEmoji(run.player_location)}</a>
-              </span>
-              <br/>
-              <span class="time">
-                <a href="{run.weblink}" target="_blank">{run.times} 🔎</a>
-              </span>
-              <br/>
-              <span class="submitted">
-                <time datetime={run.submitted}>{convertDate(run.submitted)}</time>
-              </span>
+              <p>
+                <span class="runner">
+                  <a href="{run.player_url}" target="_blank">
+                    {run.player_name} {getFlagEmoji(run.player_location)}
+                  </a>
+                </span>
+                <br/>
+                <span class="submitted">
+                  <time datetime={run.submitted}>{convertDate(run.submitted)}</time>
+                </span>
+              </p>
             </div>
-            <div class="comment">{run.comment}</div>
+            <div class="run">
+              <p>
+                <a href="{run.weblink}" target="_blank">
+                  <span>{run.category} 🔎</span>
+                  <br/>
+                  <span class="time">
+                    {run.times}
+                  </span>
+                </a>
+              </p>
+            </div>
+            <div class="comment">
+              {run.comment}
+            </div>
             <div>
               {run.booked_by || ""}
             </div>
@@ -169,7 +183,7 @@
   main > div.grid {
     display: grid;
     align-items: center;
-    grid-template-columns: 2fr 4fr 2fr 1fr;
+    grid-template-columns: 3fr 3fr 2fr 2fr 1fr;
   }
 
   main > div.grid > div {
@@ -186,7 +200,7 @@
   }
 
   .time {
-    font-size: 1em;
+    font-size: 0.8em;
   }
 
   .submitted {

@@ -13,6 +13,7 @@ pub struct PendingRun {
     id: String,
     weblink: String,
     comment: String,
+    category: String,
     player_name: String,
     player_location: String,
     player_url: String,

@@ -22,8 +22,6 @@ lazy_static::lazy_static! {
     };
 }
 
-// 9d3kqg1l,m1mn8kd2,w6jve26j,y65lw01e,m1zky010,k6qg0xdg,j1neogy1,lde3woe6,nd28z0ed,
-
 mod pending_runs {
     use super::*;
 
@@ -38,6 +36,7 @@ mod pending_runs {
         weblink: String,
         comment: Option<String>,
         players: PlayersResource,
+        category: CategoryResource,
         times: Times,
         submitted: String,
     }
@@ -74,6 +73,16 @@ mod pending_runs {
         primary: String,
     }
 
+    #[derive(Deserialize, Debug)]
+    pub(super) struct CategoryResource {
+        data: Category,
+    }
+
+    #[derive(Deserialize, Debug)]
+    pub(super) struct Category {
+        name: String,
+    }
+
     impl TryFrom<Run> for PendingRun {
         type Error = String;
 
@@ -100,6 +109,7 @@ mod pending_runs {
                 id: run.id,
                 weblink: run.weblink,
                 comment: run.comment.unwrap_or_else(String::new),
+                category: run.category.data.name,
                 submitted: run.submitted,
                 player_name: player.names.international.clone(),
                 player_location: player.location.country.code.clone(),
