@@ -1,21 +1,35 @@
 <script>
   const { API_ROOT } = ENV
+  let username
+  let api_key = localStorage.getItem('api-key')
   let promise = getPending()
-  let username = localStorage.getItem('username')
-  let password = localStorage.getItem('password')
   let auth_promise = checkCredentials()
 
   async function getPending() {
+      let games = await(await fetch(`${API_ROOT}/games`)).json()
       let pending = await(await fetch(`${API_ROOT}/pending`)).json()
-      let mods = await(await fetch(`${API_ROOT}/mods`)).json()
 
-      return [pending, mods]
+      const ordering = [
+        "w6jve26j",
+        "lde3woe6",
+        "y65lw01e",
+        "m1zky010",
+        "k6qg0xdg",
+        "m1mn8kd2",
+        "j1neogy1",
+        "9d3kqg1l",
+        "nd28z0ed",
+      ]
+      
+      let r = ordering.map((id) => ({ game: games[id], pending: pending[id] }))
+      return r
   }
 
-  async function fetchFromSrcom() {
-    await fetch(`${API_ROOT}/fetch`)
-    promise = getPending()
-  }
+  async function updatePending() {
+      let pending = await getPending()
+
+      promise = new Promise((res) => res(pending))
+    }
 
   function getFlagEmoji(countryCode) {
     const codePoints = countryCode
@@ -37,105 +51,109 @@
 
   async function bookRun(run) {
     console.log(`Booking run ${run.id}`)
-    let authorization = btoa(`${username}:${password}`)
 
     await fetch(`${API_ROOT}/book/${run.id}`, {
         method: 'POST',
         headers: {
-            'Authorization': `Basic ${authorization}`
+            'X-API-Key': api_key
         }
     })
 
-    promise = getPending()
+    await updatePending()
   }
 
   async function unbookRun(run) {
     console.log(`Unbooking run ${run.id}`)
-    let authorization = btoa(`${username}:${password}`)
 
     await fetch(`${API_ROOT}/book/${run.id}`, {
         method: 'DELETE',
         headers: {
-            'Authorization': `Basic ${authorization}`
+            'X-API-Key': api_key
         }
     })
 
-    promise = getPending()
+    await updatePending()
   }
 
   async function checkCredentials() {
-    let authorization = btoa(`${username}:${password}`)
-    let res = await fetch(`${API_ROOT}/auth`, {
-      headers: {
-          'Authorization': `Basic ${authorization}`
-      }
+    let resp = await fetch(`${API_ROOT}/auth`, {
+        headers: {
+            'X-API-Key': api_key
+        }
     })
-    if (res.status == 200) {
-      return true 
-    }
-    else {
-      return false
+
+    if (resp.status == 200) {
+        username = await resp.text()
+        console.log(username)
+        return true
+    } else {
+        username = null
+        return false
     }
   }
 
   function storeCredentials() {
     auth_promise = checkCredentials()
-    localStorage.setItem('username', username)
-    localStorage.setItem('password', password)
+    localStorage.setItem('api-key', api_key)
   }
 </script>
 
 <main>
     <div>
-      <input type="text" placeholder="Username" bind:value={username} on:change={storeCredentials}/>
-      <input type="password" placeholder="Password" bind:value={password} on:change={storeCredentials}/>
+      <input type="text" placeholder="Paste your API key here" bind:value={api_key} on:change={storeCredentials}/>
       {#await auth_promise}
         ...
       {:then outcome}
         {#if outcome}
         ✅
+        <span>{username}</span>
         {:else}
         ❌
+        <a href="https://www.speedrun.com/api/auth" target="_blank">Copy your API Key from here</a>
         {/if}
       {:catch err}
         ❌
+        <a href="https://www.speedrun.com/api/auth" target="_blank">Copy your API Key from here</a>
       {/await}
     </div>
     {#await promise}
       <p>Loading...</p>
-    {:then [pending, mods]}
-      <div class="grid">
-        <div class="th">Run</div>
-        <div class="th">Comment</div>
-        <div class="th">Booked by</div>
-        <div class="th">Book</div>
-        {#each pending as run}
-          <div>
-            <span class="runner">
-              <a href="{run.player_url}" target="_blank">{run.player_name} {getFlagEmoji(run.player_location)}</a>
-            </span>
-            <br/>
-            <span class="time">
-              <a href="{run.weblink}" target="_blank">{run.times} 🔎</a>
-            </span>
-            <br/>
-            <span class="submitted">
-              <time datetime={run.submitted}>{convertDate(run.submitted)}</time>
-            </span>
-          </div>
-          <div class="comment">{run.comment}</div>
-          <div>
-            {run.booked_by || ""}
-          </div>
-          <div>
-            {#if run.booked_by == null}
-            <button on:click={() => bookRun(run)}>Book</button>
-            {:else if run.booked_by == username}
-            <button on:click={() => unbookRun(run)}>Unbook</button>
-            {/if}
-          </div>
-        {/each}
-      </div>
+    {:then pending_games}
+      {#each pending_games as { pending, game }}
+        <h1>{game}</h1>
+        <div class="grid">
+          <div class="th">Run</div>
+          <div class="th">Comment</div>
+          <div class="th">Booked by</div>
+          <div class="th">Book</div>
+          {#each pending as run}
+            <div>
+              <span class="runner">
+                <a href="{run.player_url}" target="_blank">{run.player_name} {getFlagEmoji(run.player_location)}</a>
+              </span>
+              <br/>
+              <span class="time">
+                <a href="{run.weblink}" target="_blank">{run.times} 🔎</a>
+              </span>
+              <br/>
+              <span class="submitted">
+                <time datetime={run.submitted}>{convertDate(run.submitted)}</time>
+              </span>
+            </div>
+            <div class="comment">{run.comment}</div>
+            <div>
+              {run.booked_by || ""}
+            </div>
+            <div>
+              {#if run.booked_by == null}
+              <button on:click={() => bookRun(run)}>Book</button>
+              {:else if run.booked_by == username}
+              <button on:click={() => unbookRun(run)}>Unbook</button>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {/each}
     {:catch error}
       <p>{error}</p>
     {/await}
@@ -150,6 +168,7 @@
 
   main > div.grid {
     display: grid;
+    align-items: center;
     grid-template-columns: 2fr 4fr 2fr 1fr;
   }
 
@@ -174,7 +193,7 @@
     font-size: 0.8em;
   }
 
-  .run {
-    text-align: center;
+  button {
+    cursor: pointer;
   }
 </style>

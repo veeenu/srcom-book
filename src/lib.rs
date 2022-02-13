@@ -5,7 +5,6 @@ use self::db::DbConnection;
 
 use anyhow::Result;
 
-pub mod auth;
 pub mod db;
 pub mod srcom;
 
@@ -23,20 +22,23 @@ pub struct PendingRun {
 }
 
 pub fn merge_pendings(
-    pending_db: HashMap<String, Option<String>>,
-    mut pending_online: Vec<PendingRun>,
-) -> Vec<PendingRun> {
-    for mut run in &mut pending_online {
-        run.booked_by = pending_db.get(&run.id).cloned().flatten();
+    pending_db: HashMap<String, String>,
+    mut pending_online: HashMap<String, Vec<PendingRun>>,
+) -> HashMap<String, Vec<PendingRun>> {
+    for runs in pending_online.values_mut() {
+        for mut run in runs {
+            run.booked_by = pending_db.get(&run.id).cloned();
+        }
     }
     pending_online
 }
 
 pub async fn book_run(id: String, booked_by: String, db: Arc<Mutex<DbConnection>>) -> Result<()> {
-    if booked_by == "nobody" {
-        db.lock().unwrap().unbook_run(&id)?;
-    } else {
-        db.lock().unwrap().book_run(&id, &booked_by)?;
-    }
+    db.lock().unwrap().book_run(&id, &booked_by)?;
+    Ok(())
+}
+
+pub async fn unbook_run(id: String, booked_by: String, db: Arc<Mutex<DbConnection>>) -> Result<()> {
+    db.lock().unwrap().unbook_run(&id, &booked_by)?;
     Ok(())
 }

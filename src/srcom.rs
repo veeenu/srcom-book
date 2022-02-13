@@ -1,7 +1,28 @@
+use std::collections::HashMap;
+
 use crate::PendingRun;
 
 use anyhow::Result;
+use http::HeaderMap;
 use serde::Deserialize;
+
+lazy_static::lazy_static! {
+    pub static ref GAMES: HashMap<&'static str, &'static str> = {
+        let mut m = HashMap::new();
+        m.insert("w6jve26j", "Dark Souls");
+        m.insert("lde3woe6", "Dark Souls Remastered");
+        m.insert("y65lw01e", "Dark Souls II: Scholar of the First Sin");
+        m.insert("m1zky010", "Dark Souls II");
+        m.insert("k6qg0xdg", "Dark Souls III");
+        m.insert("m1mn8kd2", "Demon's Souls");
+        m.insert("j1neogy1", "Demon's Souls (2020)");
+        m.insert("9d3kqg1l", "Bloodborne");
+        m.insert("nd28z0ed", "Elden Ring");
+        m
+    };
+}
+
+// 9d3kqg1l,m1mn8kd2,w6jve26j,y65lw01e,m1zky010,k6qg0xdg,j1neogy1,lde3woe6,nd28z0ed,
 
 mod pending_runs {
     use super::*;
@@ -57,7 +78,7 @@ mod pending_runs {
         type Error = String;
 
         fn try_from(run: Run) -> Result<Self, Self::Error> {
-            if run.players.data.len() == 0 {
+            if run.players.data.is_empty() {
                 return Err(format!("Run {} has no players", run.id));
             }
 
@@ -83,7 +104,7 @@ mod pending_runs {
                 player_name: player.names.international.clone(),
                 player_location: player.location.country.code.clone(),
                 player_url: player.weblink.clone(),
-                times: times,
+                times,
                 booked_by: None,
             })
         }
@@ -102,26 +123,16 @@ mod pending_runs {
     }
 }
 
-mod moderators {
+mod user {
     use super::*;
 
     #[derive(Deserialize, Debug)]
-    pub(super) struct ModsResource {
-        data: GameData,
+    pub(super) struct UserResource {
+        data: User,
     }
 
     #[derive(Deserialize, Debug)]
-    pub(super) struct GameData {
-        moderators: ModsData,
-    }
-
-    #[derive(Deserialize, Debug)]
-    pub(super) struct ModsData {
-        data: Vec<Moderator>,
-    }
-
-    #[derive(Deserialize, Debug)]
-    pub(super) struct Moderator {
+    pub(super) struct User {
         names: Names,
     }
 
@@ -130,14 +141,9 @@ mod moderators {
         international: String,
     }
 
-    impl ModsResource {
-        pub(super) fn names(self) -> Vec<String> {
-            self.data
-                .moderators
-                .data
-                .into_iter()
-                .map(|moderator| moderator.names.international)
-                .collect::<Vec<_>>()
+    impl UserResource {
+        pub(super) fn get_name(self) -> String {
+            self.data.names.international
         }
     }
 }
@@ -146,51 +152,78 @@ mod moderators {
 // Request endpoints
 //
 
-pub async fn get_pending_runs() -> Result<Vec<PendingRun>> {
-    const URI: &str =
-        "https://www.speedrun.com/api/v1/runs?game=k6qg0xdg&embed=players&status=new&max=200";
-
-    let body = reqwest::Client::new()
-        .get(URI)
-        .header("Cache-Control", "no-cache")
-        .header("Pragma", "no-cache")
-        .send()
-        .await?
-        // .json::<pending_runs::RunsResource>()
-        .text()
-        .await?;
-
-    let runs: pending_runs::RunsResource =
-        serde_path_to_error::deserialize(&mut serde_json::Deserializer::from_str(&body))?;
-
-    Vec::<PendingRun>::try_from(runs).map_err(|e| anyhow::Error::msg(e))
+pub struct SrcomAPI {
+    client: reqwest::Client,
 }
 
-#[tokio::test]
-async fn test_get_pending_runs() {
-    let pending_runs = get_pending_runs().await;
-    println!("{:#?}", pending_runs);
+impl Default for SrcomAPI {
+    fn default() -> Self {
+        SrcomAPI::new()
+    }
 }
 
-pub async fn get_mods() -> Result<Vec<String>> {
-    const URI: &str = "https://www.speedrun.com/api/v1/games/k6qg0xdg?embed=moderators";
+impl SrcomAPI {
+    pub fn new() -> Self {
+        SrcomAPI {
+            client: reqwest::Client::new(),
+        }
+    }
 
-    let body = reqwest::Client::new()
-        .get(URI)
-        .header("Cache-Control", "no-cache")
-        .header("Pragma", "no-cache")
-        .send()
-        .await?
-        .text()
-        .await?;
+    async fn get_pending_runs_game(&self, game_id: &str) -> Result<Vec<PendingRun>> {
+        if !GAMES.contains_key(game_id) {
+            return Err(anyhow::Error::msg(format!("Unknown game {}", game_id)));
+        }
 
-    serde_path_to_error::deserialize(&mut serde_json::Deserializer::from_str(&body))
-        .map(|mods: moderators::ModsResource| mods.names())
-        .map_err(|e| anyhow::Error::msg(e))
-}
+        let uri = format!(
+            "https://www.speedrun.com/api/v1/runs?game={game_id}&embed=players&status=new&max=200"
+        );
 
-#[tokio::test]
-async fn test_get_mods() {
-    let mods = get_mods().await;
-    println!("{:#?}", mods);
+        let body = self
+            .client
+            .get(uri)
+            .header("Cache-Control", "no-cache")
+            .header("Pragma", "no-cache")
+            .send()
+            .await?
+            .text()
+            .await?;
+
+        let runs: pending_runs::RunsResource =
+            serde_path_to_error::deserialize(&mut serde_json::Deserializer::from_str(&body))?;
+
+        Vec::<PendingRun>::try_from(runs).map_err(anyhow::Error::msg)
+    }
+
+    pub async fn get_pending_runs(
+        &self,
+    ) -> Result<HashMap<String, Vec<PendingRun>>> {
+        futures::future::try_join_all(GAMES.keys().map(|g| async move {
+            self.get_pending_runs_game(g)
+                .await
+                .map(|r| (g.to_string(), r))
+        }))
+        .await
+        .map(|v| v.into_iter().collect::<HashMap<_, _>>())
+    }
+
+    pub async fn get_profile(&self, headers: &HeaderMap) -> Result<String> {
+        let api_key = headers
+            .get("X-API-Key")
+            .ok_or_else(|| anyhow::Error::msg("API Key missing"))
+            .and_then(|h| h.to_str().map_err(anyhow::Error::msg))?;
+
+        let body = self
+            .client
+            .get("https://www.speedrun.com/api/v1/profile")
+            .header("X-API-Key", api_key)
+            .send()
+            .await?
+            .text()
+            .await?;
+
+        let user: user::UserResource =
+            serde_path_to_error::deserialize(&mut serde_json::Deserializer::from_str(&body))?;
+
+        Ok(user.get_name())
+    }
 }

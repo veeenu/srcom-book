@@ -28,11 +28,12 @@ jobs:
         run: |
           npm i
           npm run build
+      - name: Gather artifacts
+        run: |
+          mkdir target/dist
+          cp target/x86_64-unknown-linux-musl/release/srcom-book target/dist
+          cp -a www/public target/dist
       - uses: actions/upload-artifact@v2
         with:
           name: srcom-book
-          path: target/x86_64-unknown-linux-musl/release/srcom-book
-      - uses: actions/upload-artifact@v2
-        with:
-          name: srcom-book-www
-          path: www/public
+          path: target/dist
