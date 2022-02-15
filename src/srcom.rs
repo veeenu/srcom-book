@@ -50,7 +50,7 @@ mod pending_runs {
     pub(super) struct Player {
         weblink: String,
         names: Names,
-        location: Location,
+        location: Option<Location>,
     }
 
     #[derive(Deserialize, Debug)]
@@ -112,7 +112,10 @@ mod pending_runs {
                 category: run.category.data.name,
                 submitted: run.submitted,
                 player_name: player.names.international.clone(),
-                player_location: player.location.country.code.clone(),
+                player_location: player
+                    .location
+                    .as_ref()
+                    .map(|l| l.country.code.clone()),
                 player_url: player.weblink.clone(),
                 times,
                 booked_by: None,
@@ -204,9 +207,7 @@ impl SrcomAPI {
         Vec::<PendingRun>::try_from(runs).map_err(anyhow::Error::msg)
     }
 
-    pub async fn get_pending_runs(
-        &self,
-    ) -> Result<HashMap<String, Vec<PendingRun>>> {
+    pub async fn get_pending_runs(&self) -> Result<HashMap<String, Vec<PendingRun>>> {
         futures::future::try_join_all(GAMES.keys().map(|g| async move {
             self.get_pending_runs_game(g)
                 .await

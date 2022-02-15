@@ -32,6 +32,10 @@
     }
 
   function getFlagEmoji(countryCode) {
+    if (!countryCode) {
+      return ''
+    }
+
     const codePoints = countryCode
       .toUpperCase()
       .split('')
