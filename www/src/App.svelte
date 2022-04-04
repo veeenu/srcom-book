@@ -96,6 +96,14 @@
     auth_promise = checkCredentials()
     localStorage.setItem('api-key', api_key)
   }
+
+  function abridged(s) {
+      if (s.length < 10) {
+          return s
+      } else {
+          return s.substring(0, 10) + '…'
+      }
+  }
 </script>
 
 <main>
@@ -122,47 +130,48 @@
       {#each pending_games as { pending, game }}
         <h1>{game}</h1>
         <div class="grid">
-          <div class="th">Runner</div>
-          <div class="th">Run</div>
-          <div class="th">Comment</div>
-          <div class="th">Booked by</div>
-          <div class="th">Book</div>
+          <div class="th run-th">Run</div>
+          <div class="th book-th">Book</div>
           {#each pending as run}
-            <div>
+            <div class="run">
               <p>
-                <span class="runner">
-                  <a href="{run.player_url}" target="_blank">
-                    {run.player_name} {getFlagEmoji(run.player_location)}
-                  </a>
-                </span>
+                <a href="{run.player_url}" target="_blank">
+                  <span class='emoji'>{getFlagEmoji(run.player_location)}</span>
+                  <span class="runner">{run.player_name}</span>
+                </a>
                 <br/>
+                <a href="{run.weblink}" target="_blank">
+                  <span class='emoji'>🔎</span>
+                  <span class='category'> {run.category}</span>
+                  <br/>
+                  <span class='emoji'>⏱️ </span>
+                  <span class="time"> {run.times}</span>
+                </a>
+                <br/>
+                <span class='emoji'>📅</span>
                 <span class="submitted">
                   <time datetime={run.submitted}>{convertDate(run.submitted)}</time>
                 </span>
+                <br/>
+                {#if run.comment.length > 0}
+                <label class='comment'>
+                  <input type='checkbox'/>
+                  <span class='emoji'>💬</span>
+                  <span class='comment-abridged'>{abridged(run.comment)}</span>
+                  <span class='comment-full'>{run.comment}</span>
+                </label>
+                {/if}
               </p>
             </div>
-            <div class="run">
-              <p>
-                <a href="{run.weblink}" target="_blank">
-                  <span>{run.category} 🔎</span>
-                  <br/>
-                  <span class="time">
-                    {run.times}
-                  </span>
-                </a>
-              </p>
-            </div>
-            <div class="comment">
-              {run.comment}
-            </div>
-            <div>
-              {run.booked_by || ""}
-            </div>
-            <div>
+            <div class="book">
               {#if run.booked_by == null}
-              <button on:click={() => bookRun(run)}>Book</button>
-              {:else if run.booked_by == username}
-              <button on:click={() => unbookRun(run)}>Unbook</button>
+                <button on:click={() => bookRun(run)}>Book</button>
+              {:else}
+                {run.booked_by || ""}
+                {#if  run.booked_by == username}
+                  <br/>
+                  <button on:click={() => unbookRun(run)}>Unbook</button>
+                {/if}
               {/if}
             </div>
           {/each}
@@ -177,17 +186,49 @@
 	main {
     margin: auto;
     padding: 3rem;
-    max-width: 800px;
+    max-width: 600px;
 	}
 
   main > div.grid {
     display: grid;
     align-items: center;
-    grid-template-columns: 3fr 3fr 2fr 2fr 1fr;
+    grid-template-columns: 4fr 3fr;
+  }
+
+  label.comment > input {
+    display: none;
+  }
+
+  .comment-abridged {
+    display: none;
+  }
+
+  @media screen and (max-width: 540px) {
+    main > div.grid {
+      grid-template-columns: 3fr 2fr;
+    }
+
+    label.comment > input:checked ~ .comment-abridged,
+    label.comment > input:not(:checked) ~ .comment-full {
+      display: none;
+    }
+
+    label.comment > input:checked ~ .comment-full,
+    label.comment > input:not(:checked) ~ .comment-abridged {
+      display: inline;
+    }
   }
 
   main > div.grid > div {
     padding: .5em;
+  }
+
+  span.emoji {
+    font-size: 1rem;
+  }
+
+  div.book {
+    text-align: center;
   }
 
   .th {
@@ -199,12 +240,16 @@
     font-size: 1.2em;
   }
 
-  .time {
-    font-size: 0.8em;
+  .category,
+  .time,
+  .submitted,
+  .comment-abridged,
+  .comment-full {
+    font-size: 0.9em;
   }
 
-  .submitted {
-    font-size: 0.8em;
+  label.comment {
+    user-select: none;
   }
 
   button {
