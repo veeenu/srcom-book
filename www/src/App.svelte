@@ -111,29 +111,37 @@
 </script>
 
 <main>
-    <div>
-      <input type="text" placeholder="Paste your API key here" bind:value={api_key} on:change={storeCredentials}/>
-      {#await auth_promise}
-        ...
-      {:then outcome}
-        {#if outcome}
-        ✅
-        <span>{username}</span>
-        {:else}
-        ❌
-        <a href="https://www.speedrun.com/api/auth" target="_blank">Copy your API Key from here</a>
-        {/if}
-      {:catch err}
-        ❌
-        <a href="https://www.speedrun.com/api/auth" target="_blank">Copy your API Key from here</a>
-      {/await}
+  {#await promise}
+    <p>Loading...</p>
+  {:then pending_games}
+    <div id="sidebar">
+      <div id="api-key">
+        <input type="text" placeholder="Paste your API key here" bind:value={api_key} on:change={storeCredentials}/>
+        {#await auth_promise}
+          ...
+        {:then outcome}
+          {#if outcome}
+          ✅
+          <span>{username}</span>
+          {:else}
+          ❌
+          <a href="https://www.speedrun.com/api/auth" target="_blank">Copy your API Key from here</a>
+          {/if}
+        {:catch err}
+          ❌
+          <a href="https://www.speedrun.com/api/auth" target="_blank">Copy your API Key from here</a>
+        {/await}
+      </div>
     </div>
-    {#await promise}
-      <p>Loading...</p>
-    {:then pending_games}
+    <div id="games">
+      <div>
       {#each pending_games as { pending, game }}
-        <h1>{game}</h1>
+        <input class="game-toggle" type="checkbox" id={game} checked/>
+        <label class="game-toggle" for={game}>
+          <h1>{game}</h1>
+        </label>
         <div class="grid">
+          <div class="th runner-th">Runner</div>
           <div class="th run-th">Run</div>
           <div class="th book-th">Book</div>
           {#each pending as run}
@@ -142,14 +150,6 @@
                 <a href="{run.player_url}" target="_blank">
                   <span class='emoji'>{getFlagEmoji(run.player_location)}</span>
                   <span class="runner">{run.player_name}</span>
-                </a>
-                <br/>
-                <a href="{run.weblink}" target="_blank">
-                  <span class='emoji'>🔎</span>
-                  <span class='category'> {run.category}</span>
-                  <br/>
-                  <span class='emoji'>⏱️ </span>
-                  <span class="time"> {run.times}</span>
                 </a>
                 <br/>
                 <span class='emoji'>📅</span>
@@ -167,6 +167,17 @@
                 {/if}
               </p>
             </div>
+            <div class="run">
+              <a href="{run.weblink}" target="_blank">
+                <p>
+                  <span class='emoji'>🔎</span>
+                  <span class='category'> {run.category}</span>
+                  <br/>
+                  <span class='emoji'>⏱️ </span>
+                  <span class="time"> {run.times}</span>
+                </p>
+              </a>
+            </div>
             <div class="book">
               {#if run.booked_by == null}
                 <button on:click={() => bookRun(run)}>Book</button>
@@ -181,22 +192,25 @@
           {/each}
         </div>
       {/each}
-    {:catch error}
-      <p>{error}</p>
-    {/await}
+      </div>
+    </div>
+  {:catch error}
+    <p>{error}</p>
+  {/await}
 </main>
 
 <style>
 	main {
     margin: auto;
     padding: 3rem;
-    max-width: 600px;
+    width: 540px;
 	}
 
-  main > div.grid {
+  div.grid {
+    width: 540px;
     display: grid;
     align-items: center;
-    grid-template-columns: 4fr 3fr;
+    grid-template-columns: 3fr 3fr 2fr;
   }
 
   label.comment > input {
@@ -207,23 +221,48 @@
     display: none;
   }
 
-  @media screen and (max-width: 540px) {
-    main > div.grid {
-      grid-template-columns: 3fr 2fr;
-    }
-
-    label.comment > input:checked ~ .comment-abridged,
-    label.comment > input:not(:checked) ~ .comment-full {
-      display: none;
-    }
-
-    label.comment > input:checked ~ .comment-full,
-    label.comment > input:not(:checked) ~ .comment-abridged {
-      display: inline;
+  @media screen and (max-width: 900px) {
+    div.grid {
+      grid-template-columns: 3fr 3fr 2fr;
     }
   }
 
-  main > div.grid > div {
+  label.game-toggle {
+    cursor: pointer;
+    user-select: none;
+  }
+
+  input.game-toggle {
+    display: none;
+  }
+
+  input.game-toggle:checked + label.game-toggle + div.grid {
+    display: grid;
+  }
+
+  input.game-toggle:not(:checked) + label.game-toggle + div.grid {
+    display: none;
+  }
+
+  input.game-toggle:checked + label.game-toggle > h1::before {
+    content: "\25bc\00a0";
+  }
+
+  input.game-toggle:not(:checked) + label.game-toggle > h1::before {
+    content: "\25b6\00a0";
+  }
+
+  label.comment > input:checked ~ .comment-abridged,
+  label.comment > input:not(:checked) ~ .comment-full {
+    display: none;
+  }
+
+  label.comment > input:checked ~ .comment-full,
+  label.comment > input:not(:checked) ~ .comment-abridged {
+    display: inline;
+  }
+
+  div.grid > div {
     padding: .5em;
   }
 
