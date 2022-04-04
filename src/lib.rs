@@ -15,7 +15,7 @@ pub struct PendingRun {
     comment: String,
     category: String,
     player_name: String,
-    player_location: String,
+    player_location: Option<String>,
     player_url: String,
     booked_by: Option<String>,
     submitted: String,
