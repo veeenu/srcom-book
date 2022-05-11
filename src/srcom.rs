@@ -18,6 +18,7 @@ lazy_static::lazy_static! {
         m.insert("j1neogy1", "Demon's Souls (2020)");
         m.insert("9d3kqg1l", "Bloodborne");
         m.insert("nd28z0ed", "Elden Ring");
+        m.insert("o1y9zk26", "Sekiro");
         m
     };
 }
