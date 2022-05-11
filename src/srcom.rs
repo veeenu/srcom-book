@@ -195,8 +195,7 @@ impl SrcomAPI {
         let body = self
             .client
             .get(uri)
-            .header("Cache-Control", "no-cache")
-            .header("Pragma", "no-cache")
+            .header("Cache-Control", "no-store, must-revalidate")
             .send()
             .await?
             .text()
