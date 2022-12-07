@@ -54,6 +54,10 @@
     return `${y}-${m}-${d}`
   }
 
+  async function copyRunUrl(run) {
+    await navigator.clipboard.writeText(run.video_url)
+  }
+
   async function bookRun(run) {
     console.log(`Booking run ${run.id}`)
 
@@ -178,6 +182,12 @@
                   <span class="time"> {run.times}</span>
                 </p>
               </a>
+              <p>
+                <label class="web-url">
+                  <input type="text" value={run.video_url}/>
+                  <button on:click={async () => await copyRunUrl(run) }>🔗</button>
+                </label>
+              </p>
             </div>
             <div class="book">
               {#if run.booked_by == null}
@@ -298,5 +308,30 @@
 
   button {
     cursor: pointer;
+  }
+
+  div.run > a > p {
+    margin-bottom: 0;
+  }
+
+  div.run > p {
+    margin-top: 0;
+  }
+
+  label.web-url {
+    display: grid;
+    grid-template-columns: auto 2em;
+    border: 1px solid rgba(255, 255, 255, .3);
+  }
+
+  label.web-url > * {
+    font-family: monospace;
+    font-size: .7rem;
+    border: none;
+    padding-bottom: 0;
+  }
+
+  label.web-url > *:focus-visible {
+    outline: none;
   }
 </style>

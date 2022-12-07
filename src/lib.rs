@@ -12,6 +12,7 @@ pub mod srcom;
 pub struct PendingRun {
     id: String,
     weblink: String,
+    video_url: Option<String>,
     comment: String,
     category: String,
     player_name: String,

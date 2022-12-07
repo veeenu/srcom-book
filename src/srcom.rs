@@ -35,11 +35,22 @@ mod pending_runs {
     pub(super) struct Run {
         id: String,
         weblink: String,
+        videos: Videos,
         comment: Option<String>,
         players: PlayersResource,
         category: CategoryResource,
         times: Times,
         submitted: String,
+    }
+
+    #[derive(Deserialize, Debug)]
+    pub(super) struct Videos {
+        links: Vec<Link>,
+    }
+
+    #[derive(Deserialize, Debug)]
+    pub(super) struct Link {
+        uri: String,
     }
 
     #[derive(Deserialize, Debug)]
@@ -109,15 +120,13 @@ mod pending_runs {
             Ok(PendingRun {
                 id: run.id,
                 weblink: run.weblink,
-                comment: run.comment.unwrap_or_else(String::new),
+                comment: run.comment.unwrap_or_default(),
                 category: run.category.data.name,
                 submitted: run.submitted,
                 player_name: player.names.international.clone(),
-                player_location: player
-                    .location
-                    .as_ref()
-                    .map(|l| l.country.code.clone()),
+                player_location: player.location.as_ref().map(|l| l.country.code.clone()),
                 player_url: player.weblink.clone(),
+                video_url: run.videos.links.get(0).map(|i| i.uri.clone()),
                 times,
                 booked_by: None,
             })
